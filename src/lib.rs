@@ -1,10 +1,14 @@
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 use core::{future::Future, ops::DerefMut};
 use futures::{Sink, Stream, TryFuture};
 
 pub mod director;
 pub use director::Director;
+mod flat;
 mod option;
 mod unit;
 pub use unit::Unit;

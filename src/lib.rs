@@ -3,11 +3,11 @@
 use core::{future::Future, ops::DerefMut};
 use futures::{Sink, Stream, TryFuture};
 
-mod array;
 pub mod director;
 pub use director::Director;
 mod option;
 mod unit;
+pub use unit::Unit;
 
 #[derive(Debug)]
 pub enum ContextError<Context, Protocol> {

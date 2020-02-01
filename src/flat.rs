@@ -50,6 +50,12 @@ macro_rules! flat {
             }
         )*
     };
+    ( #[doc = $doc:literal] $( $x:ty ),* ) => {
+        $(
+            #[doc = $doc]
+            flat!($x);
+        )*
+    };
 }
 
 flat! {
@@ -72,6 +78,7 @@ mod std {
     };
 
     flat! {
+        /// This requires the `std` feature, which is enabled by default
         IpAddr, Ipv4Addr, Ipv6Addr,
         SocketAddr, SocketAddrV4, SocketAddrV6,
         SystemTime
@@ -84,6 +91,7 @@ mod alloc {
     use ::alloc::string::String;
 
     flat! {
+        /// This requires the `alloc` feature, which is enabled by default
         String
     }
 }

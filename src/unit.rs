@@ -5,17 +5,13 @@ use core::{
 };
 use futures::future::{ready, Ready};
 
-pub trait Unit {
-    const VALUE: Self;
-}
-
-impl<T: Unit, C> Protocol<C> for T {
+impl<C> Protocol<C> for () {
     type Unravel = Infallible;
     type UnravelError = Infallible;
     type UnravelFuture = Ready<Result<(), Infallible>>;
     type Coalesce = Infallible;
     type CoalesceError = Infallible;
-    type CoalesceFuture = Ready<Result<T, Infallible>>;
+    type CoalesceFuture = Ready<Result<(), Infallible>>;
 
     fn unravel(self, _: C::Unravel) -> Self::UnravelFuture
     where
@@ -28,22 +24,75 @@ impl<T: Unit, C> Protocol<C> for T {
     where
         C: Channels<Self::Unravel, Self::Coalesce>,
     {
-        ready(Ok(T::VALUE))
+        ready(Ok(()))
     }
 }
 
-impl Unit for () {
-    const VALUE: Self = ();
+impl<T, C> Protocol<C> for [T; 0] {
+    type Unravel = Infallible;
+    type UnravelError = Infallible;
+    type UnravelFuture = Ready<Result<(), Infallible>>;
+    type Coalesce = Infallible;
+    type CoalesceError = Infallible;
+    type CoalesceFuture = Ready<Result<[T; 0], Infallible>>;
+
+    fn unravel(self, _: C::Unravel) -> Self::UnravelFuture
+    where
+        C: Channels<Self::Unravel, Self::Coalesce>,
+    {
+        ready(Ok(()))
+    }
+
+    fn coalesce(_: C::Coalesce) -> Self::CoalesceFuture
+    where
+        C: Channels<Self::Unravel, Self::Coalesce>,
+    {
+        ready(Ok([]))
+    }
 }
 
-impl<T> Unit for [T; 0] {
-    const VALUE: Self = [];
+impl<T: ?Sized, C> Protocol<C> for PhantomData<T> {
+    type Unravel = Infallible;
+    type UnravelError = Infallible;
+    type UnravelFuture = Ready<Result<(), Infallible>>;
+    type Coalesce = Infallible;
+    type CoalesceError = Infallible;
+    type CoalesceFuture = Ready<Result<PhantomData<T>, Infallible>>;
+
+    fn unravel(self, _: C::Unravel) -> Self::UnravelFuture
+    where
+        C: Channels<Self::Unravel, Self::Coalesce>,
+    {
+        ready(Ok(()))
+    }
+
+    fn coalesce(_: C::Coalesce) -> Self::CoalesceFuture
+    where
+        C: Channels<Self::Unravel, Self::Coalesce>,
+    {
+        ready(Ok(PhantomData))
+    }
 }
 
-impl Unit for PhantomPinned {
-    const VALUE: Self = PhantomPinned;
-}
+impl<C> Protocol<C> for PhantomPinned {
+    type Unravel = Infallible;
+    type UnravelError = Infallible;
+    type UnravelFuture = Ready<Result<(), Infallible>>;
+    type Coalesce = Infallible;
+    type CoalesceError = Infallible;
+    type CoalesceFuture = Ready<Result<PhantomPinned, Infallible>>;
 
-impl<T: ?Sized> Unit for PhantomData<T> {
-    const VALUE: Self = PhantomData;
+    fn unravel(self, _: C::Unravel) -> Self::UnravelFuture
+    where
+        C: Channels<Self::Unravel, Self::Coalesce>,
+    {
+        ready(Ok(()))
+    }
+
+    fn coalesce(_: C::Coalesce) -> Self::CoalesceFuture
+    where
+        C: Channels<Self::Unravel, Self::Coalesce>,
+    {
+        ready(Ok(PhantomPinned))
+    }
 }

@@ -1,5 +1,5 @@
-use super::{Director, DirectorError};
-use crate::{Channel, Channels, Protocol};
+use super::{Director, DirectorError, Empty};
+use crate::{Channel, Channels, ContextError, Dispatch, Join, Protocol, Spawn};
 use core::{
     convert::Infallible,
     marker::PhantomData,
@@ -134,6 +134,43 @@ impl<T: Unpin + Stream + Sink<U::Item>, U: Unpin + Stream + Sink<<T as Stream>::
 {
     type Unravel = Unravel<T, U>;
     type Coalesce = Coalesce<T, U>;
+}
+
+impl<T, U> Dispatch for Context<T, U> {
+    type Handle = ();
+}
+
+impl<T, U, P: Protocol<Context<Empty, Empty>, Unravel = Infallible, Coalesce = Infallible>> Join<P>
+    for Context<T, U>
+{
+    type Error = Infallible;
+    type Target = Context<Empty, Empty>;
+    type Output = MapErr<
+        P::CoalesceFuture,
+        fn(P::CoalesceError) -> ContextError<Infallible, P::CoalesceError>,
+    >;
+
+    fn join(&mut self, _: ()) -> Self::Output {
+        P::coalesce(Coalesce(Empty::new(), Context(PhantomData))).map_err(ContextError::Protocol)
+    }
+}
+
+impl<
+        T: Unpin,
+        U: Unpin,
+        P: Protocol<Context<Empty, Empty>, Unravel = Infallible, Coalesce = Infallible>,
+    > Spawn<P> for Context<T, U>
+{
+    type Error = Infallible;
+    type Target = Context<Empty, Empty>;
+    type Output =
+        MapErr<P::UnravelFuture, fn(P::UnravelError) -> ContextError<Infallible, P::UnravelError>>;
+
+    fn spawn(&mut self, protocol: P) -> Self::Output {
+        protocol
+            .unravel(Unravel(Empty::new(), Context(PhantomData)))
+            .map_err(ContextError::Protocol)
+    }
 }
 
 pub struct Trivial;

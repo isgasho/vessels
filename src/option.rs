@@ -19,12 +19,18 @@ pub enum Error<Unravel, Send> {
     Send(Send),
 }
 
-pub enum Coalesce<C: Channels<<C as Dispatch>::Handle, Infallible> + Pass<T>, T: Protocol<C>> {
+pub enum Coalesce<
+    C: Channels<<C as Dispatch>::Handle, Infallible> + Pass<T>,
+    T: Unpin + Protocol<<C as Spawn<T>>::Target> + Protocol<<C as Join<T>>::Target>,
+> {
     Next(StreamFuture<C::Coalesce>),
     Join(<C as Join<T>>::Output),
 }
 
-pub enum Unravel<C: Pass<T> + Channels<<C as Dispatch>::Handle, Infallible>, T: Protocol<C>> {
+pub enum Unravel<
+    C: Pass<T> + Channels<<C as Dispatch>::Handle, Infallible>,
+    T: Unpin + Protocol<<C as Spawn<T>>::Target> + Protocol<<C as Join<T>>::Target>,
+> {
     Spawn(Option<C::Unravel>, <C as Spawn<T>>::Output),
     Send(
         Forward<
@@ -34,7 +40,10 @@ pub enum Unravel<C: Pass<T> + Channels<<C as Dispatch>::Handle, Infallible>, T: 
     ),
 }
 
-impl<C: Pass<T> + Channels<<C as Dispatch>::Handle, Infallible>, T: Protocol<C>> Coalesce<C, T>
+impl<
+        C: Pass<T> + Channels<<C as Dispatch>::Handle, Infallible>,
+        T: Unpin + Protocol<<C as Spawn<T>>::Target> + Protocol<<C as Join<T>>::Target>,
+    > Coalesce<C, T>
 where
     C::Coalesce: Unpin,
 {
@@ -43,15 +52,21 @@ where
     }
 }
 
-impl<C: Pass<T> + Channels<<C as Dispatch>::Handle, Infallible>, T: Protocol<C>> Unravel<C, T> {
+impl<
+        C: Pass<T> + Channels<<C as Dispatch>::Handle, Infallible>,
+        T: Unpin + Protocol<<C as Spawn<T>>::Target> + Protocol<<C as Join<T>>::Target>,
+    > Unravel<C, T>
+{
     fn new(mut channel: C::Unravel, item: T) -> Self {
         let spawn = channel.spawn(item);
         Unravel::Spawn(Some(channel), spawn)
     }
 }
 
-impl<C: Channels<<C as Dispatch>::Handle, Infallible> + Pass<T>, T: Unpin + Protocol<C>> Future
-    for Coalesce<C, T>
+impl<
+        C: Channels<<C as Dispatch>::Handle, Infallible> + Pass<T>,
+        T: Unpin + Protocol<<C as Spawn<T>>::Target> + Protocol<<C as Join<T>>::Target>,
+    > Future for Coalesce<C, T>
 where
     <C as Dispatch>::Handle: Unpin,
     <C as Join<T>>::Output: Unpin,
@@ -61,7 +76,7 @@ where
         Option<T>,
         ContextError<
             <C as Join<T>>::Error,
-            <<T as Protocol<C>>::CoalesceFuture as TryFuture>::Error,
+            <<T as Protocol<<C as Join<T>>::Target>>::CoalesceFuture as TryFuture>::Error,
         >,
     >;
 
@@ -87,8 +102,10 @@ where
     }
 }
 
-impl<C: Channels<<C as Dispatch>::Handle, Infallible> + Pass<T>, T: Unpin + Protocol<C>> Future
-    for Unravel<C, T>
+impl<
+        C: Channels<<C as Dispatch>::Handle, Infallible> + Pass<T>,
+        T: Unpin + Protocol<<C as Spawn<T>>::Target> + Protocol<<C as Join<T>>::Target>,
+    > Future for Unravel<C, T>
 where
     <C as Dispatch>::Handle: Unpin,
     <C as Spawn<T>>::Output: Unpin,
@@ -99,7 +116,7 @@ where
         Error<
             ContextError<
                 <C as Spawn<T>>::Error,
-                <<T as Protocol<C>>::UnravelFuture as TryFuture>::Error,
+                <<T as Protocol<<C as Spawn<T>>::Target>>::UnravelFuture as TryFuture>::Error,
             >,
             <C::Unravel as Sink<<C as Dispatch>::Handle>>::Error,
         >,
@@ -129,8 +146,10 @@ where
     }
 }
 
-impl<C: Channels<<C as Dispatch>::Handle, Infallible> + Pass<T>, T: Unpin + Protocol<C>> Protocol<C>
-    for Option<T>
+impl<
+        C: Channels<<C as Dispatch>::Handle, Infallible> + Pass<T>,
+        T: Unpin + Protocol<<C as Spawn<T>>::Target> + Protocol<<C as Join<T>>::Target>,
+    > Protocol<C> for Option<T>
 where
     C::Handle: Unpin,
     <C as Join<T>>::Output: Unpin,

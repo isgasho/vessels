@@ -11,7 +11,6 @@ pub use director::Director;
 mod flat;
 mod option;
 mod unit;
-pub use unit::Unit;
 
 #[derive(Debug)]
 pub enum ContextError<Context, Protocol> {
@@ -19,8 +18,9 @@ pub enum ContextError<Context, Protocol> {
     Protocol(Protocol),
 }
 
-pub trait Join<P: Protocol<Self>>: Dispatch {
+pub trait Join<P: Protocol<Self::Target>>: Dispatch {
     type Error;
+    type Target;
     type Output: Future<
         Output = Result<P, ContextError<Self::Error, <P::CoalesceFuture as TryFuture>::Error>>,
     >;
@@ -28,8 +28,9 @@ pub trait Join<P: Protocol<Self>>: Dispatch {
     fn join(&mut self, handle: Self::Handle) -> Self::Output;
 }
 
-pub trait Spawn<P: Protocol<Self>>: Dispatch {
+pub trait Spawn<P: Protocol<Self::Target>>: Dispatch {
     type Error;
+    type Target;
     type Output: Future<
         Output = Result<
             Self::Handle,
@@ -40,9 +41,17 @@ pub trait Spawn<P: Protocol<Self>>: Dispatch {
     fn spawn(&mut self, item: P) -> Self::Output;
 }
 
-pub trait Pass<P: Protocol<Self>>: Spawn<P> + Join<P> {}
+pub trait Pass<P: Protocol<<Self as Spawn<P>>::Target> + Protocol<<Self as Join<P>>::Target>>:
+    Spawn<P> + Join<P>
+{
+}
 
-impl<P: Protocol<T>, T: Spawn<P> + Join<P>> Pass<P> for T {}
+impl<
+        P: Protocol<<Self as Spawn<P>>::Target> + Protocol<<Self as Join<P>>::Target>,
+        T: Spawn<P> + Join<P>,
+    > Pass<P> for T
+{
+}
 
 pub trait Channel<T, U, S: ?Sized>: Stream<Item = T> + Sink<U> + DerefMut<Target = S> {}
 

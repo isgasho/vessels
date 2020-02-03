@@ -1,5 +1,5 @@
 use super::{Director, DirectorError};
-use crate::{Channel, Channels, Protocol};
+use crate::{Channel, Channels, ContextError, Dispatch, Join, Protocol, Spawn};
 use core::{
     convert::Infallible,
     ops::{Deref, DerefMut},
@@ -11,6 +11,12 @@ use futures::{future::MapErr, Sink, Stream, TryFutureExt};
 pub struct Context;
 
 pub struct Empty(Context);
+
+impl Empty {
+    pub fn new() -> Self {
+        Empty(Context)
+    }
+}
 
 impl Sink<Infallible> for Empty {
     type Error = Infallible;
@@ -59,6 +65,36 @@ impl Channel<Infallible, Infallible, Context> for Empty {}
 impl Channels<Infallible, Infallible> for Context {
     type Unravel = Empty;
     type Coalesce = Empty;
+}
+
+impl Dispatch for Context {
+    type Handle = ();
+}
+
+impl<P: Protocol<Context, Unravel = Infallible, Coalesce = Infallible>> Join<P> for Context {
+    type Error = Infallible;
+    type Target = Context;
+    type Output = MapErr<
+        P::CoalesceFuture,
+        fn(P::CoalesceError) -> ContextError<Infallible, P::CoalesceError>,
+    >;
+
+    fn join(&mut self, _: ()) -> Self::Output {
+        P::coalesce(Empty(Context)).map_err(ContextError::Protocol)
+    }
+}
+
+impl<P: Protocol<Context, Unravel = Infallible, Coalesce = Infallible>> Spawn<P> for Context {
+    type Error = Infallible;
+    type Target = Context;
+    type Output =
+        MapErr<P::UnravelFuture, fn(P::UnravelError) -> ContextError<Infallible, P::UnravelError>>;
+
+    fn spawn(&mut self, protocol: P) -> Self::Output {
+        protocol
+            .unravel(Empty(Context))
+            .map_err(ContextError::Protocol)
+    }
 }
 
 pub struct Null;

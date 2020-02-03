@@ -3,6 +3,7 @@ use core::future::Future;
 use futures::TryFuture;
 
 mod null;
+pub(crate) use null::Empty;
 pub use null::Null;
 mod trivial;
 pub use trivial::Trivial;
